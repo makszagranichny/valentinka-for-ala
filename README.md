@@ -223,6 +223,30 @@
       .buttons { flex-direction: column; align-items: center; }
       button { width: 100%; max-width: 250px; }
     }
+    
+    .error-message {
+      color: #ff6b6b;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px;
+      border-radius: 10px;
+      margin: 10px 0;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -230,12 +254,12 @@
   
   <div class="container">
     <div class="card">
-      <!-- ФОТО ДЕВУШКИ (АЛИ) -->
-      <img src="https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80" 
-           alt="Аля" class="avatar" id="girlPhoto">
+      <!-- ФОТО АЛИ -->
+      <img src="" alt="Аля" class="avatar" id="girlPhoto">
+      <div id="photoError" class="error-message">Фото загружается...</div>
       
-      <h1>Аля 💕</h1>
-      <div class="subtitle">Этот сайт создан специально для тебя!</div>
+      <h1 id="girlName">💕</h1>
+      <div class="subtitle" id="subtitle">Этот сайт создан специально для тебя!</div>
       
       <div class="question" id="question">
         Ты будешь моей валентинкой? 💘
@@ -250,16 +274,14 @@
         УРА! Ты сделала меня счастливым! 💘
       </div>
       
-      <!-- ВАШИ ФОТОГРАФИИ (появятся после нажатия ДА) -->
+      <!-- ВАШИ ФОТОГРАФИИ -->
       <div class="my-photos" id="myPhotos">
         <div class="photo-container">
-          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80" 
-               alt="Моё фото 1">
+          <img src="" alt="Моё фото 1" id="myPhoto1">
           <p style="margin-top: 8px; font-size: 14px;">Это я 😊</p>
         </div>
         <div class="photo-container">
-          <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80" 
-               alt="Моё фото 2">
+          <img src="" alt="Моё фото 2" id="myPhoto2">
           <p style="margin-top: 8px; font-size: 14px;">И это тоже я 😎</p>
         </div>
       </div>
@@ -271,12 +293,12 @@
   </div>
 
   <script>
-    // Настройки (МОЖНО ИЗМЕНИТЬ)
+    // ⚙️ НАСТРОЙКИ - ЗАМЕНИТЕ НА ИМЕНА ВАШИХ ФАЙЛОВ!
     const CONFIG = {
       girlName: "Аля",                      // Имя девушки
-      girlPhoto: "her_photo.jpg",           // Фото девушки (загрузите файл или укажите ссылку)
-      myPhoto1: "my_photo1.jpg",            // Ваше фото 1
-      myPhoto2: "my_photo2.jpg",            // Ваше фото 2
+      girlPhoto: "her_photo.jpg",           // Фото Али (имя вашего файла)
+      myPhoto1: "my_photo1.jpg",            // Ваше фото 1 (имя вашего файла)
+      myPhoto2: "my_photo2.jpg",            // Ваше фото 2 (имя вашего файла)
       soundYes: "yes_sound.mp3",            // Звук при согласии (опционально)
     };
     
@@ -288,8 +310,16 @@
     const myPhotosEl = document.getElementById('myPhotos');
     const heartsContainer = document.getElementById('heartsContainer');
     const girlPhotoEl = document.getElementById('girlPhoto');
+    const myPhoto1El = document.getElementById('myPhoto1');
+    const myPhoto2El = document.getElementById('myPhoto2');
+    const girlNameEl = document.getElementById('girlName');
+    const subtitleEl = document.getElementById('subtitle');
+    const photoErrorEl = document.getElementById('photoError');
     
     let noClickCount = 0;
+    let photosLoaded = 0;
+    const totalPhotos = 3; // Али + ваши 2 фото
+    
     const noMessages = [
       "Точно нет? 🥺",
       "Подумай ещё разочек! 💖",
@@ -300,10 +330,58 @@
       "Ты уверена? Посмотри на меня внимательно! 😄"
     ];
     
-    // Загрузка фото (если нужно поменять ссылки)
-    // girlPhotoEl.src = CONFIG.girlPhoto; // Раскомментировать если есть фото
-    // document.querySelectorAll('.my-photos img')[0].src = CONFIG.myPhoto1;
-    // document.querySelectorAll('.my-photos img')[1].src = CONFIG.myPhoto2;
+    // Функция загрузки фото с проверкой ошибок
+    function loadPhoto(imgElement, photoUrl, photoName) {
+      return new Promise((resolve) => {
+        imgElement.onload = () => {
+          photosLoaded++;
+          updateLoadingStatus();
+          resolve(true);
+        };
+        
+        imgElement.onerror = () => {
+          console.error(`Ошибка загрузки фото: ${photoName}`);
+          photoErrorEl.textContent = `Фото "${photoName}" не найдено. Проверьте имя файла.`;
+          photoErrorEl.style.display = 'block';
+          photosLoaded++;
+          updateLoadingStatus();
+          resolve(false);
+        };
+        
+        imgElement.src = photoUrl;
+        imgElement.alt = photoName;
+      });
+    }
+    
+    // Обновление статуса загрузки
+    function updateLoadingStatus() {
+      if (photosLoaded === totalPhotos) {
+        photoErrorEl.style.display = 'none';
+        girlNameEl.innerHTML = CONFIG.girlName + ' 💕';
+        subtitleEl.innerHTML = 'Этот сайт создан специально для тебя!';
+      } else {
+        photoErrorEl.innerHTML = `Загружаю фото... (${photosLoaded}/${totalPhotos}) <span class="loading"></span>`;
+      }
+    }
+    
+    // Загрузка всех фото при старте
+    async function loadAllPhotos() {
+      photoErrorEl.style.display = 'block';
+      photoErrorEl.innerHTML = 'Начинаю загрузку фото... <span class="loading"></span>';
+      
+      // Загружаем фото Али
+      await loadPhoto(girlPhotoEl, CONFIG.girlPhoto, "Фото Али");
+      
+      // Загружаем ваши фото (они появятся только после нажатия ДА)
+      await loadPhoto(myPhoto1El, CONFIG.myPhoto1, "Моё фото 1");
+      await loadPhoto(myPhoto2El, CONFIG.myPhoto2, "Моё фото 2");
+      
+      // Если все фото загружены успешно
+      if (photosLoaded === totalPhotos) {
+        photoErrorEl.style.display = 'none';
+        console.log('✅ Все фото успешно загружены!');
+      }
+    }
     
     // Создание сердечек
     function createHeart() {
@@ -351,8 +429,10 @@
     function sayYes() {
       // Воспроизведение звука (если есть)
       try {
-        const audio = new Audio(CONFIG.soundYes);
-        audio.play().catch(e => console.log("Звук не удалось воспроизвести"));
+        if (CONFIG.soundYes) {
+          const audio = new Audio(CONFIG.soundYes);
+          audio.play().catch(e => console.log("Звук не удалось воспроизвести"));
+        }
       } catch(e) {}
       
       // Прячем вопрос и кнопки
@@ -366,7 +446,8 @@
       myPhotosEl.style.display = 'flex';
       
       // Меняем заголовок
-      document.querySelector('h1').innerHTML = CONFIG.girlName + ' 💘<br>Моя Валентинка!';
+      girlNameEl.innerHTML = CONFIG.girlName + ' 💘<br>Моя Валентинка!';
+      subtitleEl.innerHTML = 'Теперь ты можешь посмотреть на нас вместе! 🥰';
       
       // Создаем много сердечек
       for (let i = 0; i < 50; i++) {
@@ -389,7 +470,9 @@
         yesBtn.style.transform = `scale(${scale})`;
         
         // Меняем цвет кнопки "Да"
-        yesBtn.style.background = `linear-gradient(45deg, #ff${255 - (noClickCount * 20)}66, #ff${255 - (noClickCount * 15)}99)`;
+        const redValue = 255 - (noClickCount * 20);
+        const pinkValue = 255 - (noClickCount * 15);
+        yesBtn.style.background = `linear-gradient(45deg, #ff${redValue}66, #ff${pinkValue}99)`;
         
         // После 3 нажатий фиксируем кнопку "Нет"
         if (noClickCount >= 3) {
@@ -426,10 +509,36 @@
       }
     }
     
-    // Инструкция для пользователя
-    console.log("💝 Валентинка для Али готова!");
-    console.log("📱 Отправьте ей эту ссылку: " + window.location.href);
-    console.log("🖼️ Чтобы поменять фото, измените ссылки в коде");
+    // Запускаем загрузку фото при загрузке страницы
+    window.addEventListener('load', function() {
+      loadAllPhotos();
+      
+      // Создаем несколько сердечек
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => createHeart(), i * 300);
+      }
+      
+      // Инструкция в консоль
+      console.log("💝 Валентинка для Али загружается!");
+      console.log("📷 Загружаемые фото:");
+      console.log("1. Фото Али:", CONFIG.girlPhoto);
+      console.log("2. Ваше фото 1:", CONFIG.myPhoto1);
+      console.log("3. Ваше фото 2:", CONFIG.myPhoto2);
+      console.log("🌐 Ссылка на сайт:", window.location.href);
+    });
+    
+    // Если фото не загружаются, показываем подсказку
+    setTimeout(() => {
+      if (photosLoaded < totalPhotos) {
+        photoErrorEl.innerHTML = `
+          <strong>Проблема с загрузкой фото:</strong><br>
+          1. Проверьте имена файлов в коде<br>
+          2. Убедитесь, что фото загружены на GitHub<br>
+          3. Имена файлов: ${CONFIG.girlPhoto}, ${CONFIG.myPhoto1}, ${CONFIG.myPhoto2}<br>
+          4. Обновите страницу через 1 минуту
+        `;
+      }
+    }, 5000);
   </script>
 </body>
 </html>
