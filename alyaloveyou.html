@@ -267,10 +267,24 @@
       .buttons { flex-direction: column; align-items: center; }
       button { width: 100%; max-width: 250px; }
     }
+    
+    .debug-info {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      z-index: 100;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="hearts-container" id="heartsContainer"></div>
+  <div class="debug-info" id="debugInfo"></div>
   
   <div class="container">
     <div class="card">
@@ -314,14 +328,20 @@
   </div>
 
   <script>
-    // ⚙️ НАСТРОЙКИ - ВАЖНО: укажите правильные пути!
+    // ⚙️ НАСТРОЙКИ - ИЗМЕНЕНО ПОД ВАШИ ФАЙЛЫ!
     const CONFIG = {
       girlName: "Аля",                      // Имя девушки
-      girlPhoto: "Loveyou/her_photo.jpg",   // Фото Али (в папке Loveyou)
-      myPhoto1: "Loveyou/my_photo1.jpg",    // Ваше фото 1 (в папке Loveyou)
-      myPhoto2: "Loveyou/my_photo2.jpg",    // Ваше фото 2 (в папке Loveyou)
-      soundYes: "",                         // Звук при согласии (оставьте пустым, если нет)
+      girlPhoto: "alya.jpg",                // Фото Али - файл alya.jpg
+      myPhoto1: "my1.jpg",                  // Ваше фото 1 - файл my1.jpg
+      myPhoto2: "my2.jpg",                  // Ваше фото 2 - файл my2.jpg
+      soundYes: "",                         // Звук при согласии
     };
+    
+    // Проверяем, в какой папке лежат файлы
+    function detectFilePath(filename) {
+      // Сначала пробуем напрямую
+      return filename;
+    }
     
     // Элементы страницы
     const questionEl = document.getElementById('question');
@@ -337,6 +357,7 @@
     const subtitleEl = document.getElementById('subtitle');
     const photoErrorEl = document.getElementById('photoError');
     const photoSuccessEl = document.getElementById('photoSuccess');
+    const debugInfo = document.getElementById('debugInfo');
     
     let noClickCount = 0;
     let photosLoaded = 0;
@@ -353,40 +374,59 @@
       "Ты уверена? Посмотри на меня внимательно! 😄"
     ];
     
-    // Функция загрузки фото с проверкой
+    // Показываем отладочную информацию
+    function showDebugInfo() {
+      const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+      debugInfo.innerHTML = `
+        Файлы ищутся по путям:<br>
+        1. ${baseUrl}${CONFIG.girlPhoto}<br>
+        2. ${baseUrl}${CONFIG.myPhoto1}<br>
+        3. ${baseUrl}${CONFIG.myPhoto2}<br>
+        Загружено: ${photosLoaded}/${totalPhotos}
+      `;
+      debugInfo.style.display = 'block';
+    }
+    
+    // Функция загрузки фото
     function loadPhoto(imgElement, photoUrl, photoName) {
       return new Promise((resolve) => {
+        const img = new Image();
         const timer = setTimeout(() => {
-          if (!imgElement.complete) {
-            imgElement.classList.add('error');
+          if (!img.complete) {
+            console.error(`Таймаут загрузки: ${photoName}`);
             resolve(false);
           }
-        }, 10000);
+        }, 15000);
         
-        imgElement.onload = () => {
+        img.onload = () => {
           clearTimeout(timer);
+          imgElement.src = photoUrl;
+          imgElement.alt = photoName;
           photosLoaded++;
           checkAllPhotosLoaded();
+          console.log(`✅ Загружено: ${photoName}`);
           resolve(true);
         };
         
-        imgElement.onerror = () => {
+        img.onerror = () => {
           clearTimeout(timer);
           imgElement.classList.add('error');
           photosLoaded++;
           checkAllPhotosLoaded();
+          console.error(`❌ Ошибка: ${photoName} - ${photoUrl}`);
           resolve(false);
         };
         
-        imgElement.src = photoUrl;
-        imgElement.alt = photoName;
+        // Пробуем загрузить
+        img.src = photoUrl;
+        
+        // Показываем отладочную информацию
+        showDebugInfo();
       });
     }
     
     // Проверка загрузки всех фото
     function checkAllPhotosLoaded() {
-      const loadedText = `Загружено фото: ${photosLoaded}/${totalPhotos}`;
-      
       if (photosLoaded === totalPhotos) {
         isAllPhotosLoaded = true;
         yesBtn.disabled = false;
@@ -394,7 +434,7 @@
         yesBtn.textContent = 'ДА! 💖';
         noBtn.textContent = 'Нет 🙈';
         
-        photoSuccessEl.textContent = '✅ Все фото загружены! Готово к отправке Але!';
+        photoSuccessEl.textContent = '✅ Все фото загружены! Можно нажимать кнопки!';
         photoSuccessEl.style.display = 'block';
         photoErrorEl.style.display = 'none';
         
@@ -403,51 +443,66 @@
         
         console.log('✅ Все фото успешно загружены!');
       } else {
-        photoErrorEl.innerHTML = `${loadedText} <span class="loading"></span>`;
+        photoErrorEl.innerHTML = `Загружено фото: ${photosLoaded}/${totalPhotos} <span class="loading"></span>`;
         photoErrorEl.style.display = 'block';
       }
     }
     
-    // Загрузка всех фото
+    // Загрузка всех фото с проверкой нескольких путей
     async function loadAllPhotos() {
       photoErrorEl.innerHTML = 'Начинаю загрузку фото... <span class="loading"></span>';
       photoErrorEl.style.display = 'block';
       photoSuccessEl.style.display = 'none';
       
-      // Показываем пути для отладки
-      console.log('📷 Пути к фото:');
+      console.log('📷 Начинаю загрузку фото с именами:');
       console.log('1. Фото Али:', CONFIG.girlPhoto);
       console.log('2. Ваше фото 1:', CONFIG.myPhoto1);
       console.log('3. Ваше фото 2:', CONFIG.myPhoto2);
       
-      // Загружаем все фото
-      const results = await Promise.all([
-        loadPhoto(girlPhotoEl, CONFIG.girlPhoto, "Фото Али"),
-        loadPhoto(myPhoto1El, CONFIG.myPhoto1, "Моё фото 1"),
-        loadPhoto(myPhoto2El, CONFIG.myPhoto2, "Моё фото 2")
-      ]);
+      // Пробуем разные пути
+      const paths = {
+        girl: [CONFIG.girlPhoto, `Loveyou/${CONFIG.girlPhoto}`, `/${CONFIG.girlPhoto}`],
+        photo1: [CONFIG.myPhoto1, `Loveyou/${CONFIG.myPhoto1}`, `/${CONFIG.myPhoto1}`],
+        photo2: [CONFIG.myPhoto2, `Loveyou/${CONFIG.myPhoto2}`, `/${CONFIG.myPhoto2}`]
+      };
       
-      // Проверяем результаты
-      const successCount = results.filter(r => r).length;
+      // Загружаем фото Али
+      let girlLoaded = false;
+      for (const path of paths.girl) {
+        if (await loadPhoto(girlPhotoEl, path, `Фото Али (${path})`)) {
+          girlLoaded = true;
+          break;
+        }
+      }
       
-      if (successCount < totalPhotos) {
-        const failedPhotos = [];
-        if (!results[0]) failedPhotos.push("Фото Али");
-        if (!results[1]) failedPhotos.push("Ваше фото 1");
-        if (!results[2]) failedPhotos.push("Ваше фото 2");
-        
+      // Загружаем ваши фото
+      let photo1Loaded = false;
+      for (const path of paths.photo1) {
+        if (await loadPhoto(myPhoto1El, path, `Ваше фото 1 (${path})`)) {
+          photo1Loaded = true;
+          break;
+        }
+      }
+      
+      let photo2Loaded = false;
+      for (const path of paths.photo2) {
+        if (await loadPhoto(myPhoto2El, path, `Ваше фото 2 (${path})`)) {
+          photo2Loaded = true;
+          break;
+        }
+      }
+      
+      // Если не все фото загрузились, показываем помощь
+      if (!girlLoaded || !photo1Loaded || !photo2Loaded) {
+        const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
         photoErrorEl.innerHTML = `
-          ⚠️ Не все фото загрузились:<br>
-          Проблема с: ${failedPhotos.join(', ')}<br>
-          Проверьте пути в коде и наличие файлов на GitHub.
+          ⚠️ Проблема с загрузкой фото!<br><br>
+          <strong>Проверьте ссылки:</strong><br>
+          1. <a href="${baseUrl}alya.jpg" target="_blank">${baseUrl}alya.jpg</a><br>
+          2. <a href="${baseUrl}my1.jpg" target="_blank">${baseUrl}my1.jpg</a><br>
+          3. <a href="${baseUrl}my2.jpg" target="_blank">${baseUrl}my2.jpg</a><br><br>
+          Если фото открываются по этим ссылкам, обновите страницу.
         `;
-        
-        // Показываем прямые ссылки для проверки
-        const repoUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
-        console.log('🔗 Проверьте ссылки:');
-        console.log('Фото Али:', repoUrl + CONFIG.girlPhoto);
-        console.log('Ваше фото 1:', repoUrl + CONFIG.myPhoto1);
-        console.log('Ваше фото 2:', repoUrl + CONFIG.myPhoto2);
       }
     }
     
@@ -505,11 +560,12 @@
         }
       } catch(e) {}
       
-      // Прячем вопрос и кнопки
+      // Прячем элементы
       questionEl.style.display = 'none';
       document.querySelector('.buttons').style.display = 'none';
       photoErrorEl.style.display = 'none';
       photoSuccessEl.style.display = 'none';
+      debugInfo.style.display = 'none';
       
       // Показываем результат
       resultEl.style.display = 'block';
@@ -593,29 +649,18 @@
       // Загружаем фото
       loadAllPhotos();
       
-      // Показываем статус
-      console.log('💝 Валентинка для Али запускается...');
-      console.log('🌐 Текущий URL:', window.location.href);
+      // Показываем отладочную информацию
+      debugInfo.style.display = 'block';
       
-      // Если через 10 секунд фото не загрузились - показываем помощь
-      setTimeout(() => {
-        if (!isAllPhotosLoaded) {
-          const helpText = `
-            <strong>Проблема с загрузкой фото?</strong><br>
-            1. Проверьте, что файлы лежат в папке Loveyou<br>
-            2. Проверьте имена файлов в коде<br>
-            3. Проверьте ссылки:<br>
-            - ${window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/')}Loveyou/her_photo.jpg<br>
-            - ${window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/')}Loveyou/my_photo1.jpg<br>
-            - ${window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/')}Loveyou/my_photo2.jpg
-          `;
-          photoErrorEl.innerHTML = helpText;
-        }
-      }, 10000);
+      // Создаем сердечки каждые 500мс
+      setInterval(createHeart, 500);
     });
     
-    // Создаем сердечки каждые 500мс
-    setInterval(createHeart, 500);
+    // Открываем ссылки на фото при клике на отладочную информацию
+    debugInfo.addEventListener('click', function() {
+      const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+      window.open(`${baseUrl}${CONFIG.girlPhoto}`, '_blank');
+    });
   </script>
 </body>
 </html>
