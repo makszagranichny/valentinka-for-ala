@@ -57,6 +57,11 @@
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     }
     
+    .avatar.error {
+      border-color: #ff6b6b;
+      background: rgba(255, 107, 107, 0.1);
+    }
+    
     h1 {
       font-size: 32px;
       margin-bottom: 10px;
@@ -175,6 +180,11 @@
       transform: scale(1.05);
     }
     
+    .my-photos img.error {
+      border-color: #ff6b6b;
+      filter: grayscale(50%);
+    }
+    
     .hearts-container {
       position: fixed;
       top: 0;
@@ -209,23 +219,18 @@
       opacity: 0.7;
     }
     
-    /* Мобильная адаптация */
-    @media (max-width: 600px) {
-      .card { padding: 25px 20px; }
-      .avatar { width: 150px; height: 150px; }
-      h1 { font-size: 28px; }
-      .question { font-size: 20px; }
-      button { padding: 14px 25px; font-size: 17px; min-width: 120px; }
-      .my-photos img { width: 140px; height: 140px; }
-    }
-    
-    @media (max-width: 400px) {
-      .buttons { flex-direction: column; align-items: center; }
-      button { width: 100%; max-width: 250px; }
-    }
-    
     .error-message {
       color: #ff6b6b;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px;
+      border-radius: 10px;
+      margin: 10px 0;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .success-message {
+      color: #4caf50;
       background: rgba(255, 255, 255, 0.1);
       padding: 10px;
       border-radius: 10px;
@@ -247,6 +252,21 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    
+    /* Мобильная адаптация */
+    @media (max-width: 600px) {
+      .card { padding: 25px 20px; }
+      .avatar { width: 150px; height: 150px; }
+      h1 { font-size: 28px; }
+      .question { font-size: 20px; }
+      button { padding: 14px 25px; font-size: 17px; min-width: 120px; }
+      .my-photos img { width: 140px; height: 140px; }
+    }
+    
+    @media (max-width: 400px) {
+      .buttons { flex-direction: column; align-items: center; }
+      button { width: 100%; max-width: 250px; }
+    }
   </style>
 </head>
 <body>
@@ -256,18 +276,19 @@
     <div class="card">
       <!-- ФОТО АЛИ -->
       <img src="" alt="Аля" class="avatar" id="girlPhoto">
-      <div id="photoError" class="error-message">Фото загружается...</div>
+      <div id="photoError" class="error-message"></div>
+      <div id="photoSuccess" class="success-message"></div>
       
-      <h1 id="girlName">💕</h1>
-      <div class="subtitle" id="subtitle">Этот сайт создан специально для тебя!</div>
+      <h1 id="girlName">Загрузка...</h1>
+      <div class="subtitle" id="subtitle">Идет загрузка валентинки...</div>
       
       <div class="question" id="question">
         Ты будешь моей валентинкой? 💘
       </div>
       
       <div class="buttons">
-        <button class="yes-btn" id="yesBtn" onclick="sayYes()">ДА! 💖</button>
-        <button class="no-btn" id="noBtn" onclick="sayNo()">Нет 🙈</button>
+        <button class="yes-btn" id="yesBtn" onclick="sayYes()" disabled>ДА! 💖</button>
+        <button class="no-btn" id="noBtn" onclick="sayNo()" disabled>Нет 🙈</button>
       </div>
       
       <div class="result" id="result">
@@ -293,13 +314,13 @@
   </div>
 
   <script>
-    // ⚙️ НАСТРОЙКИ - ЗАМЕНИТЕ НА ИМЕНА ВАШИХ ФАЙЛОВ!
+    // ⚙️ НАСТРОЙКИ - ВАЖНО: укажите правильные пути!
     const CONFIG = {
       girlName: "Аля",                      // Имя девушки
-      girlPhoto: "her_photo.jpg",           // Фото Али (имя вашего файла)
-      myPhoto1: "my_photo1.jpg",            // Ваше фото 1 (имя вашего файла)
-      myPhoto2: "my_photo2.jpg",            // Ваше фото 2 (имя вашего файла)
-      soundYes: "yes_sound.mp3",            // Звук при согласии (опционально)
+      girlPhoto: "Loveyou/her_photo.jpg",   // Фото Али (в папке Loveyou)
+      myPhoto1: "Loveyou/my_photo1.jpg",    // Ваше фото 1 (в папке Loveyou)
+      myPhoto2: "Loveyou/my_photo2.jpg",    // Ваше фото 2 (в папке Loveyou)
+      soundYes: "",                         // Звук при согласии (оставьте пустым, если нет)
     };
     
     // Элементы страницы
@@ -315,10 +336,12 @@
     const girlNameEl = document.getElementById('girlName');
     const subtitleEl = document.getElementById('subtitle');
     const photoErrorEl = document.getElementById('photoError');
+    const photoSuccessEl = document.getElementById('photoSuccess');
     
     let noClickCount = 0;
     let photosLoaded = 0;
-    const totalPhotos = 3; // Али + ваши 2 фото
+    const totalPhotos = 3;
+    let isAllPhotosLoaded = false;
     
     const noMessages = [
       "Точно нет? 🥺",
@@ -330,21 +353,28 @@
       "Ты уверена? Посмотри на меня внимательно! 😄"
     ];
     
-    // Функция загрузки фото с проверкой ошибок
+    // Функция загрузки фото с проверкой
     function loadPhoto(imgElement, photoUrl, photoName) {
       return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          if (!imgElement.complete) {
+            imgElement.classList.add('error');
+            resolve(false);
+          }
+        }, 10000);
+        
         imgElement.onload = () => {
+          clearTimeout(timer);
           photosLoaded++;
-          updateLoadingStatus();
+          checkAllPhotosLoaded();
           resolve(true);
         };
         
         imgElement.onerror = () => {
-          console.error(`Ошибка загрузки фото: ${photoName}`);
-          photoErrorEl.textContent = `Фото "${photoName}" не найдено. Проверьте имя файла.`;
-          photoErrorEl.style.display = 'block';
+          clearTimeout(timer);
+          imgElement.classList.add('error');
           photosLoaded++;
-          updateLoadingStatus();
+          checkAllPhotosLoaded();
           resolve(false);
         };
         
@@ -353,33 +383,71 @@
       });
     }
     
-    // Обновление статуса загрузки
-    function updateLoadingStatus() {
+    // Проверка загрузки всех фото
+    function checkAllPhotosLoaded() {
+      const loadedText = `Загружено фото: ${photosLoaded}/${totalPhotos}`;
+      
       if (photosLoaded === totalPhotos) {
+        isAllPhotosLoaded = true;
+        yesBtn.disabled = false;
+        noBtn.disabled = false;
+        yesBtn.textContent = 'ДА! 💖';
+        noBtn.textContent = 'Нет 🙈';
+        
+        photoSuccessEl.textContent = '✅ Все фото загружены! Готово к отправке Але!';
+        photoSuccessEl.style.display = 'block';
         photoErrorEl.style.display = 'none';
+        
         girlNameEl.innerHTML = CONFIG.girlName + ' 💕';
         subtitleEl.innerHTML = 'Этот сайт создан специально для тебя!';
+        
+        console.log('✅ Все фото успешно загружены!');
       } else {
-        photoErrorEl.innerHTML = `Загружаю фото... (${photosLoaded}/${totalPhotos}) <span class="loading"></span>`;
+        photoErrorEl.innerHTML = `${loadedText} <span class="loading"></span>`;
+        photoErrorEl.style.display = 'block';
       }
     }
     
-    // Загрузка всех фото при старте
+    // Загрузка всех фото
     async function loadAllPhotos() {
-      photoErrorEl.style.display = 'block';
       photoErrorEl.innerHTML = 'Начинаю загрузку фото... <span class="loading"></span>';
+      photoErrorEl.style.display = 'block';
+      photoSuccessEl.style.display = 'none';
       
-      // Загружаем фото Али
-      await loadPhoto(girlPhotoEl, CONFIG.girlPhoto, "Фото Али");
+      // Показываем пути для отладки
+      console.log('📷 Пути к фото:');
+      console.log('1. Фото Али:', CONFIG.girlPhoto);
+      console.log('2. Ваше фото 1:', CONFIG.myPhoto1);
+      console.log('3. Ваше фото 2:', CONFIG.myPhoto2);
       
-      // Загружаем ваши фото (они появятся только после нажатия ДА)
-      await loadPhoto(myPhoto1El, CONFIG.myPhoto1, "Моё фото 1");
-      await loadPhoto(myPhoto2El, CONFIG.myPhoto2, "Моё фото 2");
+      // Загружаем все фото
+      const results = await Promise.all([
+        loadPhoto(girlPhotoEl, CONFIG.girlPhoto, "Фото Али"),
+        loadPhoto(myPhoto1El, CONFIG.myPhoto1, "Моё фото 1"),
+        loadPhoto(myPhoto2El, CONFIG.myPhoto2, "Моё фото 2")
+      ]);
       
-      // Если все фото загружены успешно
-      if (photosLoaded === totalPhotos) {
-        photoErrorEl.style.display = 'none';
-        console.log('✅ Все фото успешно загружены!');
+      // Проверяем результаты
+      const successCount = results.filter(r => r).length;
+      
+      if (successCount < totalPhotos) {
+        const failedPhotos = [];
+        if (!results[0]) failedPhotos.push("Фото Али");
+        if (!results[1]) failedPhotos.push("Ваше фото 1");
+        if (!results[2]) failedPhotos.push("Ваше фото 2");
+        
+        photoErrorEl.innerHTML = `
+          ⚠️ Не все фото загрузились:<br>
+          Проблема с: ${failedPhotos.join(', ')}<br>
+          Проверьте пути в коде и наличие файлов на GitHub.
+        `;
+        
+        // Показываем прямые ссылки для проверки
+        const repoUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+        console.log('🔗 Проверьте ссылки:');
+        console.log('Фото Али:', repoUrl + CONFIG.girlPhoto);
+        console.log('Ваше фото 1:', repoUrl + CONFIG.myPhoto1);
+        console.log('Ваше фото 2:', repoUrl + CONFIG.myPhoto2);
       }
     }
     
@@ -399,12 +467,9 @@
       }, 5000);
     }
     
-    // Создаем случайные сердечки
-    setInterval(createHeart, 500);
-    
     // Обработка наведения на кнопку "Нет"
     noBtn.addEventListener('mouseenter', function() {
-      if (noClickCount < 3) {
+      if (noClickCount < 3 && isAllPhotosLoaded) {
         const btnWidth = this.offsetWidth;
         const btnHeight = this.offsetHeight;
         
@@ -427,7 +492,12 @@
     
     // Функция согласия
     function sayYes() {
-      // Воспроизведение звука (если есть)
+      if (!isAllPhotosLoaded) {
+        alert('Пожалуйста, подождите, пока загрузятся все фото...');
+        return;
+      }
+      
+      // Воспроизведение звука
       try {
         if (CONFIG.soundYes) {
           const audio = new Audio(CONFIG.soundYes);
@@ -438,6 +508,8 @@
       // Прячем вопрос и кнопки
       questionEl.style.display = 'none';
       document.querySelector('.buttons').style.display = 'none';
+      photoErrorEl.style.display = 'none';
+      photoSuccessEl.style.display = 'none';
       
       // Показываем результат
       resultEl.style.display = 'block';
@@ -460,6 +532,8 @@
     
     // Функция отказа
     function sayNo() {
+      if (!isAllPhotosLoaded) return;
+      
       noClickCount++;
       
       if (noClickCount <= noMessages.length) {
@@ -509,36 +583,39 @@
       }
     }
     
-    // Запускаем загрузку фото при загрузке страницы
+    // Запуск при загрузке страницы
     window.addEventListener('load', function() {
-      loadAllPhotos();
-      
       // Создаем несколько сердечек
       for (let i = 0; i < 5; i++) {
         setTimeout(() => createHeart(), i * 300);
       }
       
-      // Инструкция в консоль
-      console.log("💝 Валентинка для Али загружается!");
-      console.log("📷 Загружаемые фото:");
-      console.log("1. Фото Али:", CONFIG.girlPhoto);
-      console.log("2. Ваше фото 1:", CONFIG.myPhoto1);
-      console.log("3. Ваше фото 2:", CONFIG.myPhoto2);
-      console.log("🌐 Ссылка на сайт:", window.location.href);
+      // Загружаем фото
+      loadAllPhotos();
+      
+      // Показываем статус
+      console.log('💝 Валентинка для Али запускается...');
+      console.log('🌐 Текущий URL:', window.location.href);
+      
+      // Если через 10 секунд фото не загрузились - показываем помощь
+      setTimeout(() => {
+        if (!isAllPhotosLoaded) {
+          const helpText = `
+            <strong>Проблема с загрузкой фото?</strong><br>
+            1. Проверьте, что файлы лежат в папке Loveyou<br>
+            2. Проверьте имена файлов в коде<br>
+            3. Проверьте ссылки:<br>
+            - ${window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/')}Loveyou/her_photo.jpg<br>
+            - ${window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/')}Loveyou/my_photo1.jpg<br>
+            - ${window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/')}Loveyou/my_photo2.jpg
+          `;
+          photoErrorEl.innerHTML = helpText;
+        }
+      }, 10000);
     });
     
-    // Если фото не загружаются, показываем подсказку
-    setTimeout(() => {
-      if (photosLoaded < totalPhotos) {
-        photoErrorEl.innerHTML = `
-          <strong>Проблема с загрузкой фото:</strong><br>
-          1. Проверьте имена файлов в коде<br>
-          2. Убедитесь, что фото загружены на GitHub<br>
-          3. Имена файлов: ${CONFIG.girlPhoto}, ${CONFIG.myPhoto1}, ${CONFIG.myPhoto2}<br>
-          4. Обновите страницу через 1 минуту
-        `;
-      }
-    }, 5000);
+    // Создаем сердечки каждые 500мс
+    setInterval(createHeart, 500);
   </script>
 </body>
 </html>
